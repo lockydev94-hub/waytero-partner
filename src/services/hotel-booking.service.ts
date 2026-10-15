@@ -4,6 +4,7 @@
 // Endpoints: /partners/me/hotel-bookings/...
 // ============================================================
 import apiClient from "./api";
+import type { BookingOfferInfo, BookingCouponInfo } from "./booking.service";
 
 // ── List item ────────────────────────────────────────────────
 
@@ -82,6 +83,8 @@ export interface HotelBookingDetail {
   discount_amount: number | null;
   coupon_code: string | null;
   coupon_discount: number | null;
+  offer?: BookingOfferInfo | null;
+  coupon?: BookingCouponInfo | null;
   final_amount: number | null;
   actual_check_in_at: string | null;
   actual_check_out_at: string | null;

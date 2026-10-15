@@ -31,6 +31,7 @@ import TourDetailPage from "./pages/tours/[id]/index";
 import TourBookingsPage from "./pages/tours/[id]/bookings";
 import SettingsPage from "./pages/settings/SettingsPage";
 import GstChallanPage from "./pages/gst-challan/GstChallanPage";
+import MyOffersPage from "./pages/offers/MyOffersPage";
 
 // ── Protected route guard ──────────────────────────────────
 function RequireAuth({ children }: { children: JSX.Element }) {
@@ -65,12 +66,13 @@ function RequireGstEnabled({ children }: { children: JSX.Element }) {
 // assigned (CAB / HOTEL / TOUR). Pairs with DashboardLayout hiding the
 // sidebar entry for unassigned services, so direct navigation (bookmarks,
 // stale tabs, URL edits) is blocked too.
-function RequireService({ service, children }: { service: string; children: JSX.Element }) {
+function RequireService({ service, children }: { service: string | string[]; children: JSX.Element }) {
   const { isAuthenticated } = useAuthStore();
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   const { services, isLoading } = usePartnerServices();
   if (isLoading) return null;                  // don't flash the page during service check
-  if (!services.has(service)) return <Navigate to="/dashboard" replace />;
+  const needed = Array.isArray(service) ? service : [service];
+  if (!needed.some((s) => services.has(s))) return <Navigate to="/dashboard" replace />;
   return children;
 }
 
@@ -121,6 +123,7 @@ export default function App() {
         <Route path="tours/:id" element={<RequireService service="TOUR"><TourDetailPage /></RequireService>} />
         <Route path="tours/:id/bookings" element={<RequireService service="TOUR"><TourBookingsPage /></RequireService>} />
         <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="offers" element={<RequireService service={["HOTEL", "TOUR"]}><MyOffersPage /></RequireService>} />
         <Route path="gst-challan" element={<RequireGstEnabled><GstChallanPage /></RequireGstEnabled>} />
         {/* Future routes: drivers */}
       </Route>

@@ -975,6 +975,13 @@ export default function BookingDetailPage() {
               />
               <InfoRow label="Est. Distance" value={booking.estimated_distance ? `${booking.estimated_distance} km` : undefined} />
               <InfoRow label="Est. Amount" value={booking.estimated_amount ? `₹${booking.estimated_amount.toLocaleString("en-IN")}` : undefined} />
+              {booking.coupon_discount > 0 && (
+                <InfoRow label="Coupon Discount" value={`−₹${booking.coupon_discount.toLocaleString("en-IN")}`} />
+              )}
+              {booking.offer && <InfoRow label="Offer" value={booking.offer.title} />}
+              {booking.coupon && booking.coupon.type !== "PLATFORM" && booking.coupon.partner_share > 0 && (
+                <InfoRow label="Your Coupon Share" value={`₹${booking.coupon.partner_share.toLocaleString("en-IN")}`} />
+              )}
               {booking.final_amount > 0 && <InfoRow label="Final Amount" value={`₹${booking.final_amount.toLocaleString("en-IN")}`} />}
               {booking.partner_payout > 0 && (
                 <Box sx={{ mt: 1, p: 1.5, borderRadius: 2, bgcolor: alpha(COLORS.success, 0.08), border: `1px solid ${alpha(COLORS.success, 0.2)}` }}>

@@ -66,6 +66,7 @@ export function GlobalSearch() {
   const options = useMemo<SearchOption[]>(() => {
     const visible = (item: NavItem) =>
       (!item.service || partnerServices.has(item.service)) &&
+      (!item.anyOfServices || item.anyOfServices.some((s) => partnerServices.has(s))) &&
       (!item.requiresGst || isGstEnabled);
 
     const sections: SearchOption[] = NAV_SECTIONS.flatMap((section) =>

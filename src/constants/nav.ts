@@ -15,6 +15,8 @@ export interface NavItem {
   badgeKey?: "actionable";
   /** Service type the partner must have to see this menu. */
   service?: PartnerService;
+  /** Show if the partner has ANY of these services (e.g. My Offers). */
+  anyOfServices?: PartnerService[];
   /** Requires the platform-level GST switch to be enabled. */
   requiresGst?: boolean;
   keywords?: string;
@@ -51,6 +53,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { key: "hotels", label: "Hotels", icon: "Hotel", path: "/dashboard/hotels", service: "HOTEL", keywords: "hotel stay property" },
       { key: "hotel-rooms", label: "Hotel Rooms", icon: "MeetingRoom", path: "/dashboard/hotels/rooms", service: "HOTEL", keywords: "rooms room inventory hotel" },
       { key: "tours", label: "Tours", icon: "TravelExplore", path: "/dashboard/tours", service: "TOUR", keywords: "tour package travel excursion" },
+      { key: "offers", label: "My Offers", icon: "LocalOffer", path: "/dashboard/offers", anyOfServices: ["HOTEL", "TOUR"], keywords: "offer coupon promo room types exit request" },
     ],
   },
   {

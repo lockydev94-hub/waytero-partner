@@ -27,9 +27,9 @@ import {
 } from "@mui/material";
 import {
   CheckCircle, Cancel, Block, HourglassTop, LocationOn,
-  Schedule, PersonPin, Receipt, Hotel, Tour, DateRange, Groups, Payments,
+  Schedule, PersonPin, Receipt, Hotel, Tour, DateRange, Groups, Payments, LocalOffer,
 } from "@mui/icons-material";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useSnackbar } from "notistack";
 import { bookingService } from "../../services/booking.service";
@@ -69,6 +69,12 @@ const SERVICE_META: Record<
     gradient: "linear-gradient(135deg, #8B5CF6, #7C3AED)",
     glow: "rgba(139,92,246,0.35)",
   },
+};
+
+const FUNDING_LABELS: Record<string, string> = {
+  PLATFORM: "Funded by WayTero",
+  PARTNER_ONLY: "Funded by you",
+  PLATFORM_PARTNER: "Shared funding",
 };
 
 /** Small reason prompt used for HOTEL/TOUR rejects. */
@@ -127,6 +133,23 @@ export default function AcceptRejectPopup() {
 
   const serviceType = pendingBooking?.service_type ?? "CAB";
   const meta = SERVICE_META[serviceType];
+
+  // The WS payload carries no offer/coupon data — pull the booking detail
+  // (server embeds the offer + coupon_usages snapshot) to render the banner.
+  const offerDetail = useQuery({
+    queryKey: ["pending-booking-offer", serviceType, pendingBooking?.booking_number, pendingBooking?.booking_id],
+    queryFn: async () => {
+      const b = pendingBooking!;
+      if (b.service_type === "CAB") return bookingService.getBookingDetail(b.booking_number);
+      if (b.service_type === "HOTEL") return hotelBookingService.get(b.booking_id);
+      return tourService.getTourBooking(b.booking_id);
+    },
+    enabled: open && !!pendingBooking,
+    staleTime: 30_000,
+    retry: 1,
+  });
+  const offer = offerDetail.data?.offer ?? null;
+  const coupon = offerDetail.data?.coupon ?? null;
 
   const [rejectOpen, setRejectOpen] = useState(false);
   const [simpleRejectOpen, setSimpleRejectOpen] = useState(false);
@@ -346,6 +369,43 @@ export default function AcceptRejectPopup() {
                 <>This booking is assigned to you. <strong>Accept</strong> to start managing it, or reject with a reason so admin can step in.</>
               )}
             </Alert>
+          )}
+
+          {offer && (
+            <Box
+              sx={{
+                mb: 2, px: 1.5, py: 1.25, borderRadius: 2,
+                border: `1px solid ${alpha("#8B5CF6", 0.35)}`,
+                bgcolor: alpha("#8B5CF6", 0.06),
+                display: "flex", gap: 1.5, alignItems: "center",
+              }}
+            >
+              <Avatar
+                src={offer.image_url ?? undefined}
+                variant="circular"
+                sx={{
+                  width: 44, height: 44, flexShrink: 0,
+                  border: "2px solid #fff",
+                  boxShadow: `0 2px 10px ${alpha("#8B5CF6", 0.4)}`,
+                  bgcolor: "#EDE9FE",
+                }}
+              >
+                <LocalOffer sx={{ fontSize: 20, color: "#7C3AED" }} />
+              </Avatar>
+              <Box minWidth={0}>
+                <Typography variant="subtitle2" fontWeight={800} sx={{ color: "#6D28D9" }} noWrap>
+                  Offer: {offer.title}
+                </Typography>
+                {coupon && (
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    Coupon {coupon.code} · −₹{coupon.discount_amount.toLocaleString("en-IN")} ·{" "}
+                    {FUNDING_LABELS[coupon.type] ?? coupon.type}
+                    {coupon.type !== "PLATFORM" &&
+                      ` · Your share: ₹${coupon.partner_share.toLocaleString("en-IN")}`}
+                  </Typography>
+                )}
+              </Box>
+            </Box>
           )}
 
           <Stack spacing={1.5}>

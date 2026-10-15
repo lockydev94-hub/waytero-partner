@@ -5,6 +5,21 @@
 // ============================================================
 import apiClient from "./api";
 
+// ── Offer / coupon display snapshot (migration 0077) ────────
+// Pure display data — coupon_usages on the server stays the financial truth.
+export interface BookingOfferInfo {
+  title: string;
+  slug: string;
+  image_url: string | null;
+}
+export interface BookingCouponInfo {
+  code: string;
+  type: string; // PLATFORM | PARTNER_ONLY | PLATFORM_PARTNER
+  discount_amount: number;
+  partner_share: number;
+  platform_share: number;
+}
+
 // ── List item ────────────────────────────────────────────────
 export interface BookingListItem {
   booking_number: string;
@@ -103,6 +118,8 @@ export interface BookingDetail {
   payment_collected_by: string | null;
   cash_pending_at: string | null;
   coupon_discount: number;
+  offer?: BookingOfferInfo | null;
+  coupon?: BookingCouponInfo | null;
   advance_paid: number;
   invoice_number: string | null;
   assignment: {

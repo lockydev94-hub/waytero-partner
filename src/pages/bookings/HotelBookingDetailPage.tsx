@@ -482,6 +482,10 @@ export default function HotelBookingDetailPage() {
               />
             )}
             {(data.additional_charges ?? 0) > 0 && <InfoRow label="Additional Charges" value={inr(data.additional_charges)} />}
+            {data.offer && <InfoRow label="Offer" value={data.offer.title} />}
+            {data.coupon && data.coupon.type !== "PLATFORM" && data.coupon.partner_share > 0 && (
+              <InfoRow label="Your Coupon Share" value={inr(data.coupon.partner_share)} />
+            )}
             {(data.coupon_discount ?? 0) > 0 && (
               <InfoRow
                 label={`Coupon Discount${data.coupon_code ? ` (${data.coupon_code})` : ""}`}

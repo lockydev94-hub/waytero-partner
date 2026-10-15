@@ -438,6 +438,16 @@ export default function TourBookingDetailPage() {
         </Grid>
         <Grid item xs={12} md={6}>
           <Card title="Billing Summary" icon={<Receipt sx={{ fontSize: 18, color: COLORS.gold }} />}>
+            {data.offer && <InfoRow label="Offer" value={data.offer.title} />}
+            {data.coupon && (
+              <InfoRow
+                label={`Coupon (${data.coupon.code})`}
+                value={<Typography sx={{ fontWeight: 700, color: COLORS.success }}>− {inr(data.coupon.discount_amount)}</Typography>}
+              />
+            )}
+            {data.coupon && data.coupon.type !== "PLATFORM" && data.coupon.partner_share > 0 && (
+              <InfoRow label="Your Coupon Share" value={inr(data.coupon.partner_share)} />
+            )}
             <InfoRow label="Total Amount" value={<Typography sx={{ fontWeight: 800, color: COLORS.textPrimary }}>{inr(data.total_amount)}</Typography>} />
             <Divider sx={{ my: 0.75 }} />
             <InfoRow label="Platform Commission" value={inr(data.platform_commission)} />

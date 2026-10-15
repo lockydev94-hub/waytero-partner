@@ -19,7 +19,7 @@ import {
   AccountBalanceWallet, Analytics, Settings, Notifications, SwapHoriz,
   ChevronLeft, ChevronRight, Menu as MenuIcon, Logout, Person,
   KeyboardArrowDown, Payments, NotificationsNone, Circle, Receipt,
-  MeetingRoom,
+  MeetingRoom, LocalOffer,
 } from "@mui/icons-material";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -54,6 +54,7 @@ const ICON_MAP: Record<string, JSX.Element> = {
   AccountBalanceWallet: <AccountBalanceWallet />,
   Analytics: <Analytics />,
   Receipt: <Receipt />,
+  LocalOffer: <LocalOffer />,
   Settings: <Settings />,
 };
 
@@ -106,6 +107,7 @@ export default function DashboardLayout() {
       ...section,
       items: section.items.filter((item) => {
         if (item.service && !partnerServices.has(item.service)) return false;
+        if (item.anyOfServices && !item.anyOfServices.some((s) => partnerServices.has(s))) return false;
         if (item.requiresGst && !isGstEnabled) return false;
         return true;
       }),

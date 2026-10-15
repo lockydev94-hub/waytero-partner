@@ -1,4 +1,5 @@
 import apiClient from "./api";
+import type { BookingOfferInfo, BookingCouponInfo } from "./booking.service";
 
 export interface PartnerTourItinerary {
   id?: number;
@@ -134,6 +135,8 @@ export interface PartnerTourBookingDetail {
   payment_status: string;
   booking_status: string;
   special_requests: string | null;
+  offer?: BookingOfferInfo | null;
+  coupon?: BookingCouponInfo | null;
   participants: PartnerTourParticipant[];
   timeline: TourTimelineEvent[];
   created_at: string;
