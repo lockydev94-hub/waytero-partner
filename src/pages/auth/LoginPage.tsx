@@ -20,8 +20,11 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
   const [searchParams] = useSearchParams();
-  const [inactivityNotice, setInactivityNotice] = useState(
-    searchParams.get("reason") === "inactivity"
+  const signOutReason = searchParams.get("reason");
+  const [signOutNotice, setSignOutNotice] = useState<string | null>(
+    signOutReason === "inactivity" || signOutReason === "session-expired"
+      ? signOutReason
+      : null
   );
 
   const [tab, setTab] = useState<"password" | "otp">("password");
@@ -244,9 +247,11 @@ export default function LoginPage() {
               <Tab label="OTP Login" value="otp" icon={<VpnKey sx={{ fontSize: 16 }} />} iconPosition="start" />
             </Tabs>
 
-            {inactivityNotice && (
-              <Alert severity="info" sx={{ mb: 2, borderRadius: 2, fontSize: "0.8rem" }} onClose={() => setInactivityNotice(false)}>
-                You were signed out automatically after 10 minutes of inactivity. Please sign in again.
+            {signOutNotice && (
+              <Alert severity="info" sx={{ mb: 2, borderRadius: 2, fontSize: "0.8rem" }} onClose={() => setSignOutNotice(null)}>
+                {signOutNotice === "session-expired"
+                  ? "Your 12-hour dashboard session has ended. Please sign in again."
+                  : "You were signed out automatically after a period of inactivity. Please sign in again."}
               </Alert>
             )}
 

@@ -41,6 +41,8 @@ export const NAV_SECTIONS: NavSection[] = [
     title: "Bookings & Operations",
     items: [
       { key: "bookings", label: "Bookings", icon: "BookOnline", path: "/dashboard/bookings", badgeKey: "actionable", keywords: "booking order trip new requests" },
+      { key: "tracking", label: "Live Tracking", icon: "GpsFixed", path: "/dashboard/tracking", service: "CAB", keywords: "gps location map driver live traffic speed" },
+      { key: "distance-reviews", label: "Distance Reviews", icon: "Straighten", path: "/dashboard/distance-reviews", service: "CAB", keywords: "odometer map mismatch review distance trip" },
       { key: "cash-collection", label: "Cash Collection", icon: "Payments", path: "/dashboard/cash-collection", service: "CAB", keywords: "cash collect payment trip fare" },
       { key: "hotel-switches", label: "Hotel Switches", icon: "SwapHoriz", path: "/dashboard/hotel-bookings/switch-history", service: "HOTEL", keywords: "switch transfer hotel move history" },
     ],

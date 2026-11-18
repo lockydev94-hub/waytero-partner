@@ -768,6 +768,16 @@ export default function BookingDetailPage() {
           </Box>
 
           <Stack direction="row" spacing={1.5}>
+            {booking.assignment.driver_id && ["DRIVER_ASSIGNED", "STARTED"].includes(booking.booking_status) && (
+              <Button
+                variant="outlined"
+                startIcon={<GpsFixed />}
+                onClick={() => navigate(`/dashboard/tracking?booking=${booking.booking_number}`)}
+                sx={{ fontWeight: 700 }}
+              >
+                Track Live
+              </Button>
+            )}
             <Tooltip title="Refresh">
               <IconButton onClick={() => load()} sx={{ border: `1px solid ${COLORS.border}`, borderRadius: 2 }}>
                 <WifiProtectedSetup sx={{ fontSize: 18 }} />

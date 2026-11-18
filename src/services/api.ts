@@ -3,9 +3,25 @@
 // Auto token refresh + centralized error handling
 // ============================================================
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from "axios";
+import { clearLockState, useLockStore } from "../stores/lockStore";
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api/v1";
 export const TOKEN_KEYS = { ACCESS: "pp_access_token", REFRESH: "pp_refresh_token" };
+
+// A locked dashboard must not keep reading or writing behind the overlay.
+// Only the calls the lock screen and session policy need are let through.
+const LOCK_ALLOWED = [
+  "/auth/admin/mpin/verify",
+  "/auth/admin/session-config",
+  "/auth/refresh",
+  "/auth/logout",
+];
+
+function portalLockedError() {
+  const error = new Error("The partner dashboard is locked.") as Error & { code: string };
+  error.code = "PORTAL_LOCKED";
+  return error;
+}
 
 let isRefreshing = false;
 let failedQueue: Array<{ resolve: (v: string) => void; reject: (e: unknown) => void }> = [];
@@ -22,6 +38,12 @@ const apiClient: AxiosInstance = axios.create({
 });
 
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  if (useLockStore.getState().isLocked) {
+    const url = config.url ?? "";
+    if (!LOCK_ALLOWED.some((allowed) => url.includes(allowed))) {
+      return Promise.reject(portalLockedError());
+    }
+  }
   const token = localStorage.getItem(TOKEN_KEYS.ACCESS);
   if (token) config.headers["Authorization"] = `Bearer ${token}`;
   return config;
@@ -74,6 +96,8 @@ export function registerSessionClearedCallback(cb: () => void) {
 export function clearSession(redirect?: string) {
   // 1. Reset in-memory Zustand state immediately (synchronous, prevents route flicker)
   if (_onSessionCleared) _onSessionCleared();
+  // A fresh sign-in must not inherit an overlay or yesterday's idle timestamp.
+  clearLockState();
   // 2. Clear tokens from localStorage
   Object.values(TOKEN_KEYS).forEach((k) => localStorage.removeItem(k));
   // 3. Clear Zustand persisted auth store so isAuthenticated=false on next page load

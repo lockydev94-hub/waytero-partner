@@ -3,13 +3,13 @@
 // Doc Ref: BRD Part 5 — Tour Package Management §4
 // Route: /dashboard/bookings/tour/:bookingId
 //
-// Mirrors the hotel booking detail page. The partner manages the
-// full tour lifecycle from here (fixed assignment — no admin step):
+// Mirrors the hotel booking detail page. The partner accepts, assigns the
+// fleet, and monitors execution:
 //   PENDING_CONFIRMATION → Accept → CONFIRMED
-//   CONFIRMED            → Start Tour → IN_PROGRESS
-//   IN_PROGRESS          → Complete → COMPLETED
+//   CONFIRMED            → assign vehicle + driver → driver starts in app
+//   IN_PROGRESS          → driver closes and collects balance in app
 //   PENDING_CONFIRMATION | CONFIRMED → Cancel (reason required)
-// Settlement (SETTLEMENT_PENDING → SETTLED) stays with the finance team.
+// Start/complete are driver-app actions. Settlement stays with finance.
 // ============================================================
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -20,7 +20,7 @@ import {
 } from "@mui/material";
 import {
   ArrowBack, Refresh, Tour, CalendarToday, Receipt, Person, Groups,
-  CheckCircle, PlayArrow, TaskAlt, Cancel, CardTravel,
+  CheckCircle, Cancel, CardTravel,
   Schedule, Payments, DirectionsCar, EditCalendar, AddCircle, Description, Badge,
 } from "@mui/icons-material";
 import { useSnackbar } from "notistack";
@@ -243,16 +243,15 @@ export default function TourBookingDetailPage() {
   const isTerminal = TERMINAL.includes(s);
 
   const canAccept = s === "PENDING_CONFIRMATION";
-  // Start requires the fleet (vehicle + driver) to be assigned first.
+  // The assigned driver starts and closes the tour in the driver app.
   const hasFleet = Boolean(manage?.vehicle && manage?.driver);
-  const canStart = s === "CONFIRMED" && hasFleet;
-  // Complete requires the full payment to have been collected.
   const paymentStatus = manage?.payment_status ?? data.payment_status;
   const isPaid = paymentStatus === "PAID";
   const balanceDue = Math.max((manage?.total_amount ?? data.total_amount) - (manage?.advance_total ?? 0), 0);
-  const canComplete = s === "IN_PROGRESS" && isPaid;
-  const canCollect = !["SETTLED", "CANCELLED"].includes(s);
-  const canCancel = !isTerminal && s !== "PENDING_CONFIRMATION"; // pending ones cancel via the accept popup's Reject
+  const canCollect = !["SETTLED", "CANCELLED", "IN_PROGRESS"].includes(s);
+  // Pending bookings cancel from the accept popup's Reject; running tours
+  // belong to the driver and cannot be cancelled mid-execution.
+  const canCancel = !isTerminal && !["PENDING_CONFIRMATION", "IN_PROGRESS"].includes(s);
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1000, mx: "auto" }}>
@@ -342,32 +341,6 @@ export default function TourBookingDetailPage() {
               Accept Booking
             </Button>
           )}
-          {canStart && (
-            <Button variant="contained" color="info" startIcon={<PlayArrow />} disabled={busy}
-              onClick={() => runAction("IN_PROGRESS", "Tour marked as in progress")}
-              sx={{ fontWeight: 700 }}>
-              Start Tour
-            </Button>
-          )}
-          {s === "CONFIRMED" && !hasFleet && (
-            <Button variant="contained" color="info" startIcon={<PlayArrow />} disabled
-              title="Assign a vehicle and driver first" sx={{ fontWeight: 700, opacity: 0.6 }}>
-              Start Tour
-            </Button>
-          )}
-          {s === "IN_PROGRESS" && !isPaid && (
-            <Button variant="contained" color="warning" startIcon={<Payments />} disabled={busy}
-              onClick={() => setManageModal("advance")} sx={{ fontWeight: 700 }}>
-              Collect Payment {balanceDue > 0 && `(₹${balanceDue.toLocaleString("en-IN")})`}
-            </Button>
-          )}
-          {canComplete && (
-            <Button variant="contained" color="success" startIcon={<TaskAlt />} disabled={busy}
-              onClick={() => runAction("COMPLETED", "Tour marked as completed")}
-              sx={{ fontWeight: 700 }}>
-              Mark Completed
-            </Button>
-          )}
           {canCancel && (
             <Button variant="outlined" color="warning" startIcon={<Cancel />} disabled={busy}
               onClick={() => setCancelOpen(true)}
@@ -378,15 +351,10 @@ export default function TourBookingDetailPage() {
         </Stack>
       )}
 
-      {/* Payment required before completing */}
-      {s === "IN_PROGRESS" && !isPaid && (
-        <Alert severity="warning" icon={<Payments />} sx={{ mb: 3, borderRadius: 2 }}
-          action={
-            <Button size="small" color="warning" startIcon={<Payments fontSize="small" />} onClick={() => setManageModal("advance")}>
-              Collect payment
-            </Button>
-          }>
-          <b>Collect the full payment before completing the tour.</b> Outstanding balance: <b>₹{balanceDue.toLocaleString("en-IN")}</b>. The booking can only be marked completed once the amount is fully paid.
+      {/* Driver owns execution and collection. */}
+      {s === "IN_PROGRESS" && (
+        <Alert severity="info" icon={<DirectionsCar />} sx={{ mb: 3, borderRadius: 2 }}>
+          <b>Your driver is executing this tour.</b> The driver app records the odometer and collects the balance of <b>₹{balanceDue.toLocaleString("en-IN")}</b>. Start and completion are locked to the driver app; you can follow progress in the timeline.
         </Alert>
       )}
 
@@ -410,7 +378,12 @@ export default function TourBookingDetailPage() {
               Assign fleet
             </Button>
           }>
-          <b>Assign a vehicle &amp; driver before starting the tour.</b> The tour can only be started once the fleet is set from your vehicles/drivers.
+          <b>Assign a vehicle &amp; driver before the tour can start.</b> The assigned driver starts the tour from the WayTero partner driver app.
+        </Alert>
+      )}
+      {s === "CONFIRMED" && hasFleet && (
+        <Alert severity="success" icon={<DirectionsCar />} sx={{ mb: 3, borderRadius: 2 }}>
+          <b>Fleet assigned.</b> {manage?.driver?.full_name ?? "The assigned driver"} will start and close this tour from the driver app. You will see the odometer and collected balance here.
         </Alert>
       )}
 

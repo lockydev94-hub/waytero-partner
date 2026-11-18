@@ -28,6 +28,7 @@ import { COLORS } from "../../theme";
 
 import BusinessProfileSection from "./components/BusinessProfileSection";
 import SecuritySection from "./components/SecuritySection";
+import DashboardLockSection from "./components/DashboardLockSection";
 import BankAccountSection from "./components/BankAccountSection";
 import GSTSection from "./components/GSTSection";
 import ServicesSection from "./components/ServicesSection";
@@ -300,7 +301,12 @@ export default function SettingsPage() {
           ) : profile ? (
             <Box>
               {visibleTabs[activeTab]?.id === "profile" && <BusinessProfileSection profile={profile} />}
-              {visibleTabs[activeTab]?.id === "security" && <SecuritySection />}
+              {visibleTabs[activeTab]?.id === "security" && (
+                <Stack spacing={3}>
+                  <DashboardLockSection />
+                  <SecuritySection />
+                </Stack>
+              )}
               {visibleTabs[activeTab]?.id === "banking" && <BankAccountSection bankAccounts={profile.bank_accounts ?? []} />}
               {visibleTabs[activeTab]?.id === "gst" && <GSTSection gstDetails={profile.gst_details ?? null} />}
               {visibleTabs[activeTab]?.id === "services" && <ServicesSection services={profile.services ?? []} commission={commission ?? null} />}

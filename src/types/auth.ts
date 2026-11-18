@@ -11,6 +11,8 @@ export interface AuthUser {
   is_email_verified: boolean;
   must_change_password: boolean;
   partner_id: number | null;  // Integer partners.id — populated for PARTNER user_type
+  /** No unlock PIN yet: idle currently signs the partner out instead of locking. */
+  must_set_mpin?: boolean;
 }
 export interface TokenResponse {
   access_token: string;
@@ -37,4 +39,22 @@ export interface RefreshResponse {
   expires_in: number;
   roles: string[];
   permissions: string[];
+}
+
+/** Mirrors backend SessionConfigResponse — GET /auth/admin/session-config */
+export interface SessionConfig {
+  has_mpin: boolean;
+  has_password: boolean;
+  idle_minutes: number;
+  idle_lock_minutes: number | null;
+  idle_default_minutes: number;
+  daily_logout_hour: number;
+  timezone: string;
+  server_now: string;
+  mpin_locked_until: string | null;
+  mpin_attempts_remaining: number | null;
+  mpin_min_length: number;
+  access_token_expires_in: number;
+  session_started_at?: string | null;
+  session_expires_at?: string | null;
 }

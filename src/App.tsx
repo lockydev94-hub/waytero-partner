@@ -32,6 +32,8 @@ import TourBookingsPage from "./pages/tours/[id]/bookings";
 import SettingsPage from "./pages/settings/SettingsPage";
 import GstChallanPage from "./pages/gst-challan/GstChallanPage";
 import MyOffersPage from "./pages/offers/MyOffersPage";
+import LiveTrackingPage from "./pages/tracking/LiveTrackingPage";
+import DistanceReviewsPage from "./pages/tracking/DistanceReviewsPage";
 
 // ── Protected route guard ──────────────────────────────────
 function RequireAuth({ children }: { children: JSX.Element }) {
@@ -108,6 +110,8 @@ export default function App() {
         <Route index element={<DashboardPage />} />
         <Route path="bookings" element={<BookingsPage />} />
         <Route path="bookings/:bookingNumber" element={<BookingDetailPage />} />
+        <Route path="tracking" element={<RequireService service="CAB"><LiveTrackingPage /></RequireService>} />
+        <Route path="distance-reviews" element={<RequireService service="CAB"><DistanceReviewsPage /></RequireService>} />
         <Route path="bookings/hotel/:reservationId" element={<HotelBookingDetailPage />} />
         <Route path="bookings/tour/:bookingId" element={<TourBookingDetailPage />} />
         <Route path="hotel-bookings/switch-history" element={<RequireService service="HOTEL"><HotelSwitchHistoryPage /></RequireService>} />
@@ -115,6 +119,8 @@ export default function App() {
         <Route path="fleet" element={<RequireService service="CAB"><VehiclesPage /></RequireService>} />
         <Route path="wallet" element={<WalletPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        {/* The account menu's "My Profile" lands on the same tabbed page. */}
+        <Route path="profile" element={<SettingsPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="hotels" element={<RequireService service="HOTEL"><HotelsPage /></RequireService>} />
         <Route path="hotels/rooms" element={<RequireService service="HOTEL"><HotelRoomsPage /></RequireService>} />

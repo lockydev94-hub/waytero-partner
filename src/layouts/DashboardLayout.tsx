@@ -19,7 +19,7 @@ import {
   AccountBalanceWallet, Analytics, Settings, Notifications, SwapHoriz,
   ChevronLeft, ChevronRight, Menu as MenuIcon, Logout, Person,
   KeyboardArrowDown, Payments, NotificationsNone, Circle, Receipt,
-  MeetingRoom, LocalOffer,
+  MeetingRoom, LocalOffer, GpsFixed, Straighten,
 } from "@mui/icons-material";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -55,6 +55,8 @@ const ICON_MAP: Record<string, JSX.Element> = {
   Analytics: <Analytics />,
   Receipt: <Receipt />,
   LocalOffer: <LocalOffer />,
+  GpsFixed: <GpsFixed />,
+  Straighten: <Straighten />,
   Settings: <Settings />,
 };
 

@@ -9,6 +9,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { AuthUser } from "../types/auth";
 import { TOKEN_KEYS, clearSession, registerSessionClearedCallback } from "../services/api";
+import { useLockStore } from "../stores/lockStore";
 
 interface AuthState {
   user: AuthUser | null;
@@ -41,6 +42,8 @@ export const useAuthStore = create<AuthState>()(
         setAuth: (user, accessToken, refreshToken) => {
           localStorage.setItem(TOKEN_KEYS.ACCESS, accessToken);
           localStorage.setItem(TOKEN_KEYS.REFRESH, refreshToken);
+          // A fresh sign-in starts an unlocked session with a fresh idle window.
+          useLockStore.getState().startSession();
           set({
             user,
             isAuthenticated: true,
