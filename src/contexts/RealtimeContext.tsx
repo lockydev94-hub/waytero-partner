@@ -71,6 +71,21 @@ export interface PendingBooking {
   total_amount?: number;
 }
 
+/** Statuses in which the partner still owes an accept/reject decision. */
+export const PARTNER_ACTION_STATUSES: Record<ServiceType, readonly string[]> = {
+  CAB: ["PENDING_PARTNER_ACCEPTANCE"],
+  HOTEL: ["PENDING_PAYMENT", "AWAITING_HOTEL_CONFIRMATION"],
+  TOUR: ["PENDING_CONFIRMATION"],
+};
+
+export function isAwaitingPartnerAction(
+  serviceType: ServiceType,
+  status: string | null | undefined
+): boolean {
+  if (!status) return false;
+  return PARTNER_ACTION_STATUSES[serviceType].includes(status.toUpperCase());
+}
+
 interface RealtimeContextValue {
   /** True while the WebSocket is connected. */
   online: boolean;
@@ -202,19 +217,97 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    const offResponded = subscribe("BOOKING_PARTNER_RESPONDED", () => {
+    const offResponded = subscribe<{
+      service_type?: ServiceType;
+      master_booking_id?: number;
+      cab_booking_number?: string;
+      reservation_id?: number;
+      tour_booking_id?: number;
+    }>("BOOKING_PARTNER_RESPONDED", (msg) => {
       // Any other partner tab accepted/rejected/timed out — clear our
       // pending popup + stop the ringtone so it doesn't keep looping
-      // after the partner already responded in another tab.
+      // after the partner already responded in another tab. Match the
+      // booking when the event carries an id, so an unrelated event cannot
+      // dismiss a different live offer.
+      const d = msg.data ?? {};
+      const hasTarget =
+        d.master_booking_id != null ||
+        !!d.cab_booking_number ||
+        d.reservation_id != null ||
+        d.tour_booking_id != null;
       setPendingBooking((prev) => {
-        if (prev) stopRingtone();
+        if (!prev) return prev;
+        const matches =
+          (prev.service_type === "CAB" &&
+            (d.cab_booking_number === prev.booking_number ||
+              (d.master_booking_id != null &&
+                d.master_booking_id === prev.master_booking_id))) ||
+          (prev.service_type === "HOTEL" &&
+            d.reservation_id != null &&
+            Number(d.reservation_id) === prev.booking_id) ||
+          (prev.service_type === "TOUR" &&
+            d.tour_booking_id != null &&
+            Number(d.tour_booking_id) === prev.booking_id);
+        if (hasTarget && !matches) return prev;
+        stopRingtone();
         return null;
       });
       bumpInboxVersion();
     });
 
-    const offAdminRefresh = subscribe("BOOKING_ADMIN_REFRESH", () => {
+    const offAdminRefresh = subscribe<{
+      master_booking_id?: number;
+      cab_booking_number?: string;
+      new_status?: string;
+    }>("BOOKING_ADMIN_REFRESH", (msg) => {
       bumpInboxVersion();
+      const d = msg.data;
+      // A CAB status change away from PENDING_PARTNER_ACCEPTANCE means this
+      // offer is no longer answerable (accepted elsewhere, assigned,
+      // completed, cancelled…). Drop the popup instead of leaving stale
+      // Accept/Reject buttons on screen.
+      if (!d?.new_status) return;
+      setPendingBooking((prev) => {
+        if (!prev || prev.service_type !== "CAB") return prev;
+        const matches =
+          d.cab_booking_number === prev.booking_number ||
+          (d.master_booking_id != null &&
+            d.master_booking_id === prev.master_booking_id);
+        if (!matches) return prev;
+        if (isAwaitingPartnerAction("CAB", d.new_status)) return prev;
+        stopRingtone();
+        return null;
+      });
+    });
+
+    const offBookingUpdated = subscribe<{
+      service_type?: ServiceType;
+      master_booking_id?: number;
+      service_id?: number;
+      booking_number?: string;
+      service_status?: string;
+    }>("BOOKING_UPDATED", (msg) => {
+      bumpInboxVersion();
+      const d = msg.data;
+      if (!d?.service_type || !d.service_status) return;
+      setPendingBooking((prev) => {
+        if (!prev || prev.service_type !== d.service_type) return prev;
+        const matches =
+          (prev.service_type === "CAB" &&
+            (d.booking_number === prev.booking_number ||
+              (d.master_booking_id != null &&
+                d.master_booking_id === prev.master_booking_id))) ||
+          ((prev.service_type === "HOTEL" ||
+            prev.service_type === "TOUR") &&
+            d.service_id != null &&
+            Number(d.service_id) === prev.booking_id);
+        if (!matches) return prev;
+        if (isAwaitingPartnerAction(prev.service_type, d.service_status)) {
+          return prev;
+        }
+        stopRingtone();
+        return null;
+      });
     });
 
     return () => {
@@ -223,6 +316,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       offTour();
       offResponded();
       offAdminRefresh();
+      offBookingUpdated();
     };
   }, [subscribe, bumpInboxVersion, ringAndNotify]);
 

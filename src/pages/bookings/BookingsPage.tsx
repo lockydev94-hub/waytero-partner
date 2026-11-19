@@ -19,6 +19,7 @@ import {
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { bookingService, type BookingListItem } from "../../services/booking.service";
 import { useRealtime } from "../../hooks/useRealtime";
+import { usePartnerServices } from "../../hooks/usePartnerServices";
 import { COLORS } from "../../theme";
 import HotelBookingsSection from "./HotelBookingsSection";
 import TourBookingsSection from "./TourBookingsSection";
@@ -86,9 +87,21 @@ function TripTypeBadge({ type }: { type: string | null }) {
 export default function BookingsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { services, isLoading: servicesLoading } = usePartnerServices();
+
+  // Only offer the booking types this partner is actually enabled for. The
+  // same Set drives the sidebar and RequireService routes, so a disabled
+  // service cannot be reached by typing ?tab=hotel either.
+  const hasCab = services.has("CAB");
+  const hasHotel = services.has("HOTEL");
+  const hasTour = services.has("TOUR");
+  const requestedTab = searchParams.get("tab");
   const bookingType =
-    searchParams.get("tab") === "hotel" ? "hotel"
-    : searchParams.get("tab") === "tour" ? "tour"
+    requestedTab === "hotel" && hasHotel ? "hotel"
+    : requestedTab === "tour" && hasTour ? "tour"
+    : hasCab ? "cab"
+    : hasHotel ? "hotel"
+    : hasTour ? "tour"
     : "cab";
 
   const [items, setItems] = useState<BookingListItem[]>([]);
@@ -103,6 +116,13 @@ export default function BookingsPage() {
   const LIMIT = 15;
 
   const load = useCallback(async () => {
+    if (!hasCab) {
+      setItems([]);
+      setTotal(0);
+      setPages(1);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -119,10 +139,11 @@ export default function BookingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, page]);
+  }, [hasCab, statusFilter, page]);
 
   // Silent refresh (no skeleton flash) — used by realtime fan-out.
   const loadSilent = useCallback(async () => {
+    if (!hasCab) return;
     setError(null);
     try {
       const res = await bookingService.listBookings({
@@ -136,19 +157,38 @@ export default function BookingsPage() {
     } catch (e: any) {
       setError(e?.response?.data?.detail ?? "Failed to load bookings.");
     }
-  }, [statusFilter, page]);
+  }, [hasCab, statusFilter, page]);
 
   // ── Realtime: a status change anywhere (own accept/assign, or admin
   // settle/cancel) fans out BOOKING_UPDATED → refresh the list live ──
   const { subscribe } = useRealtime();
   useEffect(() => {
     const unsub = subscribe<{ service_type: string }>("BOOKING_UPDATED", () => {
-      if (bookingType === "cab") void loadSilent();
+      if (bookingType === "cab" && hasCab) void loadSilent();
     });
     return unsub;
-  }, [subscribe, loadSilent, bookingType]);
+  }, [subscribe, loadSilent, bookingType, hasCab]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (servicesLoading) return;
+    if (bookingType === "cab") load();
+    else setLoading(false);
+  }, [load, bookingType, servicesLoading]);
+
+  // Keep the URL honest when an unavailable tab was typed/bookmarked: drop it
+  // to the first service the partner actually has.
+  useEffect(() => {
+    if (servicesLoading || !requestedTab) return;
+    const requestedAllowed =
+      (requestedTab === "hotel" && hasHotel) ||
+      (requestedTab === "tour" && hasTour);
+    if (requestedAllowed) return;
+    const fallback = hasCab ? "cab" : hasHotel ? "hotel" : hasTour ? "tour" : null;
+    if (!fallback) return;
+    setSearchParams(fallback === "cab" ? {} : { tab: fallback }, { replace: true });
+  }, [
+    servicesLoading, requestedTab, hasCab, hasHotel, hasTour, setSearchParams,
+  ]);
 
   // Local search filter (client-side on loaded page)
   const filtered = search.trim()
@@ -175,6 +215,32 @@ export default function BookingsPage() {
     setPage(1);
   };
 
+  const bookingTabs = [
+    { value: "cab", label: "Cab", icon: <DirectionsCar sx={{ fontSize: 16, mr: 0.75 }} />, visible: hasCab },
+    { value: "hotel", label: "Hotel", icon: <Hotel sx={{ fontSize: 16, mr: 0.75 }} />, visible: hasHotel },
+    { value: "tour", label: "Tours", icon: <Tour sx={{ fontSize: 16, mr: 0.75 }} />, visible: hasTour },
+  ].filter((tab) => tab.visible);
+
+  if (!servicesLoading && !hasCab && !hasHotel && !hasTour) {
+    return (
+      <Box>
+        <Typography variant="h5" sx={{ fontWeight: 800, color: COLORS.textPrimary, mb: 0.25 }}>
+          My Bookings
+        </Typography>
+        <Card elevation={0} sx={{ border: `1px solid ${COLORS.border}`, borderRadius: 3, p: 6, mt: 3, textAlign: "center" }}>
+          <BookOnline sx={{ fontSize: 56, color: alpha(COLORS.textSecondary, 0.3), mb: 2 }} />
+          <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.textPrimary, mb: 0.5 }}>
+            No services enabled
+          </Typography>
+          <Typography variant="body2" sx={{ color: COLORS.textSecondary }}>
+            Your account is not enabled for cab, hotel or tour bookings yet.
+            Please contact WayTero support.
+          </Typography>
+        </Card>
+      </Box>
+    );
+  }
+
   return (
     <Box>
       {/* ── Page header ── */}
@@ -193,37 +259,26 @@ export default function BookingsPage() {
         </Box>
         <Stack direction="row" spacing={1}>
           {/* ── Booking type toggle ── */}
-          <Box sx={{ display:"flex", border:`1px solid ${COLORS.border}`, borderRadius:2, overflow:"hidden" }}>
-            <Button size="small" onClick={() => setSearchParams({})}
-              sx={{
-                borderRadius:0, px:2, py:0.75, fontWeight:700, fontSize:"0.8rem", textTransform:"none",
-                bgcolor: bookingType === "cab" ? COLORS.gold : "transparent",
-                color: bookingType === "cab" ? "#fff" : COLORS.textSecondary,
-                "&:hover": { bgcolor: bookingType === "cab" ? COLORS.goldDark : alpha(COLORS.gold,0.08) },
-              }}>
-              <DirectionsCar sx={{ fontSize:16, mr:0.75 }} /> Cab
-            </Button>
-            <Button size="small" onClick={() => setSearchParams({ tab:"hotel" })}
-              sx={{
-                borderRadius:0, px:2, py:0.75, fontWeight:700, fontSize:"0.8rem", textTransform:"none",
-                borderLeft:`1px solid ${COLORS.border}`,
-                bgcolor: bookingType === "hotel" ? COLORS.gold : "transparent",
-                color: bookingType === "hotel" ? "#fff" : COLORS.textSecondary,
-                "&:hover": { bgcolor: bookingType === "hotel" ? COLORS.goldDark : alpha(COLORS.gold,0.08) },
-              }}>
-              <Hotel sx={{ fontSize:16, mr:0.75 }} /> Hotel
-            </Button>
-            <Button size="small" onClick={() => setSearchParams({ tab:"tour" })}
-              sx={{
-                borderRadius:0, px:2, py:0.75, fontWeight:700, fontSize:"0.8rem", textTransform:"none",
-                borderLeft:`1px solid ${COLORS.border}`,
-                bgcolor: bookingType === "tour" ? COLORS.gold : "transparent",
-                color: bookingType === "tour" ? "#fff" : COLORS.textSecondary,
-                "&:hover": { bgcolor: bookingType === "tour" ? COLORS.goldDark : alpha(COLORS.gold,0.08) },
-              }}>
-              <Tour sx={{ fontSize:16, mr:0.75 }} /> Tours
-            </Button>
-          </Box>
+          {bookingTabs.length > 0 && (
+            <Box sx={{ display:"flex", border:`1px solid ${COLORS.border}`, borderRadius:2, overflow:"hidden" }}>
+              {bookingTabs.map((tab, index) => (
+                <Button
+                  key={tab.value}
+                  size="small"
+                  onClick={() => setSearchParams(tab.value === "cab" ? {} : { tab: tab.value })}
+                  sx={{
+                    borderRadius:0, px:2, py:0.75, fontWeight:700, fontSize:"0.8rem", textTransform:"none",
+                    borderLeft: index > 0 ? `1px solid ${COLORS.border}` : "none",
+                    bgcolor: bookingType === tab.value ? COLORS.gold : "transparent",
+                    color: bookingType === tab.value ? "#fff" : COLORS.textSecondary,
+                    "&:hover": { bgcolor: bookingType === tab.value ? COLORS.goldDark : alpha(COLORS.gold,0.08) },
+                  }}
+                >
+                  {tab.icon} {tab.label}
+                </Button>
+              ))}
+            </Box>
+          )}
           {actionNeeded > 0 && bookingType === "cab" && (
             <Chip
               icon={<AssignmentInd sx={{ fontSize: 15 }} />}
@@ -243,8 +298,8 @@ export default function BookingsPage() {
         </Stack>
       </Box>
 
-      {/* ── Pending cancellation requests (Banner) ── */}
-      <PartnerCancellationRequestsBanner />
+      {/* ── Pending cancellation requests (CAB-only flow) ── */}
+      {hasCab && <PartnerCancellationRequestsBanner />}
 
       {/* ── Hotel bookings ── */}
       {bookingType === "hotel" && <HotelBookingsSection />}

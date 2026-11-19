@@ -38,6 +38,7 @@ import { tourService } from "../../services/tour.service";
 import { useCountdown } from "../../hooks/useCountdown";
 import {
   useRealtimeContext,
+  isAwaitingPartnerAction,
   type PendingBooking,
   type ServiceType,
 } from "../../contexts/RealtimeContext";
@@ -145,11 +146,25 @@ export default function AcceptRejectPopup() {
       return tourService.getTourBooking(b.booking_id);
     },
     enabled: open && !!pendingBooking,
-    staleTime: 30_000,
+    // This detail doubles as the status guard: never trust a cached status
+    // when deciding whether the accept buttons are still valid. Dropping the
+    // cache on close means a re-offer cannot be judged by the previous
+    // assignment's status.
+    staleTime: 0,
+    gcTime: 0,
+    refetchInterval: open ? 15_000 : false,
     retry: 1,
   });
   const offer = offerDetail.data?.offer ?? null;
   const coupon = offerDetail.data?.coupon ?? null;
+
+  const liveStatus = useMemo(() => {
+    const detail = offerDetail.data as Record<string, unknown> | undefined;
+    if (!detail) return null;
+    const raw =
+      serviceType === "HOTEL" ? detail.reservation_status : detail.booking_status;
+    return typeof raw === "string" ? raw : null;
+  }, [offerDetail.data, serviceType]);
 
   const [rejectOpen, setRejectOpen] = useState(false);
   const [simpleRejectOpen, setSimpleRejectOpen] = useState(false);
@@ -181,6 +196,24 @@ export default function AcceptRejectPopup() {
     stopRingtone();
     dismissPendingBooking();
   }, [dismissPendingBooking]);
+
+  // The popup is seeded from a realtime event, which can be stale by the time
+  // it is rendered (another admin assigned/accepted, auto-assign moved on, the
+  // trip completed). Close as soon as the booking's live status says there is
+  // nothing left for this partner to accept.
+  useEffect(() => {
+    if (!open || !pendingBooking || !liveStatus) return;
+    if (!isAwaitingPartnerAction(serviceType, liveStatus)) closePopup();
+  }, [open, pendingBooking, serviceType, liveStatus, closePopup]);
+
+  // If the booking no longer belongs to this partner, the detail call returns
+  // 403/404/410. That is also a resolved popup, not a reason to keep ringing.
+  useEffect(() => {
+    const status = (offerDetail.error as { response?: { status?: number } } | null)
+      ?.response?.status;
+    if (!open) return;
+    if (status === 403 || status === 404 || status === 410) closePopup();
+  }, [open, offerDetail.error, closePopup]);
 
   // If the CAB deadline hits zero in the modal, auto-close. The backend
   // sweeper will revert the cab and emit a WS event that clears

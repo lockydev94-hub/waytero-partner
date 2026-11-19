@@ -109,11 +109,11 @@ export default function App() {
       >
         <Route index element={<DashboardPage />} />
         <Route path="bookings" element={<BookingsPage />} />
-        <Route path="bookings/:bookingNumber" element={<BookingDetailPage />} />
+        <Route path="bookings/:bookingNumber" element={<RequireService service="CAB"><BookingDetailPage /></RequireService>} />
         <Route path="tracking" element={<RequireService service="CAB"><LiveTrackingPage /></RequireService>} />
         <Route path="distance-reviews" element={<RequireService service="CAB"><DistanceReviewsPage /></RequireService>} />
-        <Route path="bookings/hotel/:reservationId" element={<HotelBookingDetailPage />} />
-        <Route path="bookings/tour/:bookingId" element={<TourBookingDetailPage />} />
+        <Route path="bookings/hotel/:reservationId" element={<RequireService service="HOTEL"><HotelBookingDetailPage /></RequireService>} />
+        <Route path="bookings/tour/:bookingId" element={<RequireService service="TOUR"><TourBookingDetailPage /></RequireService>} />
         <Route path="hotel-bookings/switch-history" element={<RequireService service="HOTEL"><HotelSwitchHistoryPage /></RequireService>} />
         <Route path="cash-collection" element={<RequireService service="CAB"><CashCollectionPage /></RequireService>} />
         <Route path="fleet" element={<RequireService service="CAB"><VehiclesPage /></RequireService>} />
